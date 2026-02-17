@@ -1,93 +1,117 @@
-# eval-isi-2026
+PoC "Bank card file" (biased / simplified version)
+===================================================
 
+Goal
+----
+This proof-of-concept demonstrates a very simplified scheme where:
+- bank card numbers are stored encrypted (AES-256-CBC),
+- user names are stored in clear text,
+- the "master key" is only available after a shared-authority boot (2 officers),
+- NO integrity / authentication is provided (deliberate for this PoC).
 
+Directory layout
+----------------
+- `./usb_tec/`   : simulated USB directory for the Technical officer
+- `./usb_jur/`   : simulated USB directory for the Legal officer
+- `./ramdisk/`   : simulated RAM disk (session material, master key)
+- `./data.txt`   : the encrypted database (one entry per line)
+- `./init.sh`    : initialize USB keys + produce encrypted USB blobs
+- `./boot.sh`    : unlock USB keys and rebuild the master key in ramdisk
+- `./add.sh`     : add an entry (name + card)
+- `./find.sh`    : decrypt and print a card number by name
+- `./del.sh`     : delete an entry by name (optionally check card matches)
 
-## Getting started
+Data format (data.txt)
+----------------------
+Each line is:
+  `NAME§IVHEX§CIPHERTEXT_BASE64`
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Where:
+- `NAME` is in clear text
+- `IVHEX` is 16 bytes IV encoded in hex (32 hex chars)
+- `CIPHERTEXT_BASE64` is the AES-256-CBC encryption of the card number (base64)
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Cryptography (two officer)
+--------------------------
+- Two random 32-byte secrets are generated at init:
+    `ramdisk/key_tec.bin`  (technical officer secret)
+    `ramdisk/key_jur.bin`  (legal officer secret)
+- The master key is computed as:
+    master = key_tec XOR key_jur
+  (computed with a short python3 one-liner)
+- Each officer secret is stored on its USB directory as an OpenSSL-encrypted blob:
+    `usb_tec/key_tec.enc`
+    `usb_jur/key_jur.enc`
+  using:
+    `openssl enc -aes-256-cbc -pbkdf2`
+  OpenSSL prompts for a password interactively.
 
-## Add your files
+- During boot, both officers are required to unlock their USB blobs.
+  The two decrypted secrets are XORed again to rebuild:
+    `ramdisk/master.key`
 
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+Requirements
+------------
+- bash
+- openssl
+- python3
+- dd, hexdump, grep
 
+Example session
+---------------
+```bash
+$ ./init.sh
 ```
-cd existing_repo
-git remote add origin https://gitlab-etu.fil.univ-lille.fr/m1-iot-2026/eval-isi-2026.git
-git branch -M main
-git push -uf origin main
+--== Legal officer setup ==--
+(enter password when prompted by OpenSSL)
+--== Technical officer setup ==--
+(enter password when prompted by OpenSSL)
+done.
+```bash
+$ ./boot.sh
+```
+--== Legal officer unlock ==--
+(enter password when prompted by OpenSSL)
+--== Technical officer unlock ==--
+(enter password when prompted by OpenSSL)
+system ready.
+
+```bash
+$ ./add.sh Gilles 411111
+done
 ```
 
-## Integrate with your tools
+```bash
+$ ./add.sh Asli 311111
+done
+```
 
-* [Set up project integrations](https://gitlab-etu.fil.univ-lille.fr/m1-iot-2026/eval-isi-2026/-/settings/integrations)
+```bash
+$ ./add.sh Marc 211111
+done
+```
 
-## Collaborate with your team
+```bash
+$ ./find.sh Asli
+311111
+```
 
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+```bash
+$ ./del.sh Asli
+done
+```
 
-## Test and Deploy
+Optional delete with card check
+-------------------------------
+```bash
+$ ./del.sh Asli 311111
+done
+```
 
-Use the built-in continuous integration in GitLab.
+Notes
+-----
+- If `ramdisk/master.key` is missing, add/find/del will refuse to run
+  and you must run `./boot.sh` first.
+- IVs are generated from `/dev/urandom` using dd and stored in hex.
+- The card ciphertext is stored in base64 for convenience.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
