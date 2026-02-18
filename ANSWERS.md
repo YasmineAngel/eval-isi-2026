@@ -41,7 +41,7 @@ the admin can determine this by finding 2 entries with same card number and 2 di
 ## PART IV
 
 ### Q10 :
-Reading the code can give help the attacker know how things work and it helps him find vulnerabilites in cour code that he might exploit but if we take the necessary security measures where we encrypt the data file , check if the card already exists before appending or not allowing the same number with different names , reboot the system or ask for passwords and keys each time we try to add an entry ,  or use salting and peppering with different information that only admins and officers can provide ,  it should be okay .
+It's true that reading the code add.sh gives the attacker information on how the info is being stored in the data file which helps him find vulnerabilites that he might exploit but if we take the necessary security measures where we encrypt the data file , check if the card already exists before appending or not allowing the same number with different names , reboot the system or ask for passwords and keys each time we try to add an entry ,  or use salting and peppering with different information that only admins and officers can provide ,  it should be okay .
 
 ### Q11 :
 if we repeat the name before the cyphered text like such name§ivhex§namebase64
